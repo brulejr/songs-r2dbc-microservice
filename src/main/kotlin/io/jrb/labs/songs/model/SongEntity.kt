@@ -22,6 +22,12 @@ data class SongEntity(
         @Column(value = "title")
         val title: String,
 
+        @Column(value = "source_id")
+        val sourceId: String?,
+
+        @Column(value = "source_system")
+        val sourceSystem: String?,
+
         @Column(value = "created_on")
         override val createdOn: Instant?,
 
@@ -37,11 +43,15 @@ data class SongEntity(
 ) : Entity {
 
     data class Builder(
-            private var title: String? = null
+            private var title: String? = null,
+            private var sourceId: String? = null,
+            private var sourceSystem: String? = null
     ) : EntityBuilder<SongEntity, Song>() {
         constructor(song: Song) : this() {
             this.guid = song.guid
             this.title = song.title
+            this.sourceId = song.sourceId
+            this.sourceSystem = song.sourceSystem
             this.createdOn = song.createdOn
             this.createdBy = song.createdBy
             this.modifiedOn = song.modifiedOn
@@ -52,6 +62,8 @@ data class SongEntity(
             this.id = songEntity.id
             this.guid = songEntity.guid
             this.title = songEntity.title
+            this.sourceId = songEntity.sourceId
+            this.sourceSystem = songEntity.sourceSystem
             this.createdOn = songEntity.createdOn
             this.createdBy = songEntity.createdBy
             this.modifiedOn = songEntity.modifiedOn
@@ -64,6 +76,8 @@ data class SongEntity(
                 id = this.id,
                 guid = this.guid,
                 title = this.title!!,
+                sourceId = this.sourceId,
+                sourceSystem = this.sourceSystem,
                 createdOn = this.createdOn,
                 createdBy = this.createdBy,
                 modifiedOn = this.modifiedOn,

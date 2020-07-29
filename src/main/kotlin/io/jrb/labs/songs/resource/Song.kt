@@ -11,6 +11,8 @@ import java.util.UUID
 data class Song(
         override val guid: UUID? = null,
         val title: String,
+        val sourceId: String?,
+        val sourceSystem: String?,
         override val createdOn: Instant?,
         override val createdBy: String?,
         override val modifiedOn: Instant?,
@@ -18,12 +20,16 @@ data class Song(
 ) : Resource {
 
     data class Builder(
-            private var title: String? = null
+            private var title: String? = null,
+            private var sourceId: String? = null,
+            private var sourceSystem: String? = null
     ) : ResourceBuilder<Song, SongEntity>() {
 
         constructor(songEntity: SongEntity): this() {
             this.guid = songEntity.guid
             this.title = songEntity.title
+            this.sourceId = songEntity.sourceId
+            this.sourceSystem = songEntity.sourceSystem
             this.createdOn = songEntity.createdOn
             this.createdBy = songEntity.createdBy
             this.modifiedOn = songEntity.modifiedOn
@@ -35,6 +41,8 @@ data class Song(
         override fun build() = Song(
                 guid = this.guid,
                 title = this.title!!,
+                sourceId = this.sourceId,
+                sourceSystem = this.sourceSystem,
                 createdOn = this.createdOn,
                 createdBy = this.createdBy,
                 modifiedOn = this.modifiedOn,
