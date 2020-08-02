@@ -6,11 +6,10 @@ import com.github.fge.jsonpatch.JsonPatch
 import com.github.fge.jsonpatch.JsonPatchException
 import io.jrb.common.model.Entity
 import io.jrb.common.model.EntityBuilder
+import io.jrb.common.repository.EntityRepository
 import io.jrb.common.resource.Resource
 import io.jrb.common.resource.ResourceBuilder
-import io.jrb.common.repository.EntityRepository
 import mu.KotlinLogging
-import org.springframework.data.domain.Sort
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.time.Instant
@@ -29,6 +28,11 @@ abstract class CrudService<ENTITY: Entity, RESOURCE: Resource>(
     private val log = KotlinLogging.logger {}
 
     protected fun create(resource: RESOURCE): Mono<RESOURCE> {
+        return createEntity(resource)
+                .map { toResource(it) }
+    }
+
+    protected fun createEntity(resource: RESOURCE): Mono<ENTITY> {
         return Mono.just(resource)
             .map {
                 val timestamp: Instant = Instant.now()
@@ -39,7 +43,6 @@ abstract class CrudService<ENTITY: Entity, RESOURCE: Resource>(
                     .build()
             }
             .flatMap { entityRepository.save(it) }
-            .map { createResourceBuilder(it).build() }
             .onErrorResume(serviceErrorHandler("Unexpected error when creating $entityName"))
     }
 
@@ -51,16 +54,24 @@ abstract class CrudService<ENTITY: Entity, RESOURCE: Resource>(
     }
 
     protected fun findByGuid(guid: UUID): Mono<RESOURCE> {
-        return entityRepository.findByGuid(guid)
-            .switchIfEmpty(Mono.error(ResourceNotFoundException(entityName, guid)))
+        return findEntityByGuid(guid)
             .map { createResourceBuilder(it).build() }
-            .onErrorResume(serviceErrorHandler("Unexpected error when finding $entityName"))
+    }
+
+    protected fun findEntityByGuid(guid: UUID): Mono<ENTITY> {
+        return entityRepository.findByGuid(guid)
+                .switchIfEmpty(Mono.error(ResourceNotFoundException(entityName, guid)))
+                .onErrorResume(serviceErrorHandler("Unexpected error when finding $entityName"))
     }
 
     protected fun listAll(): Flux<RESOURCE> {
-        return entityRepository.findAll()
+        return listAllEntities()
             .map { createResourceBuilder(it).build() }
-            .onErrorResume(serviceErrorHandler("Unexpected error when retrieving $entityName"))
+    }
+
+    protected fun listAllEntities(): Flux<ENTITY> {
+        return entityRepository.findAll()
+                .onErrorResume(serviceErrorHandler("Unexpected error when retrieving $entityName"))
     }
 
     protected fun update(guid: UUID, patch: JsonPatch): Mono<RESOURCE> {
@@ -80,6 +91,18 @@ abstract class CrudService<ENTITY: Entity, RESOURCE: Resource>(
             .onErrorResume(serviceErrorHandler("Unexpected error when updating $entityName"))
     }
 
+    protected fun createEntityBuilder(resource: RESOURCE): EntityBuilder<ENTITY, RESOURCE> {
+        return entityBuilderClass.getConstructor(resourceClass).newInstance(resource)
+    }
+
+    protected fun createResourceBuilder(entity: ENTITY): ResourceBuilder<RESOURCE, ENTITY> {
+        return resourceBuilderClass.getConstructor(entityClass).newInstance(entity)
+    }
+
+    protected fun toResource(entity: ENTITY): RESOURCE {
+        return createResourceBuilder(entity).build()
+    }
+
     private fun applyPatch(guid: UUID, resource: RESOURCE, patch: JsonPatch): RESOURCE {
         try {
             val patched: JsonNode = patch.apply(jacksonObjectMapper.convertValue(resource, JsonNode::class.java))
@@ -87,14 +110,6 @@ abstract class CrudService<ENTITY: Entity, RESOURCE: Resource>(
         } catch (e: JsonPatchException) {
             throw PatchInvalidException(guid, e.message)
         }
-    }
-
-    private fun createEntityBuilder(resource: RESOURCE): EntityBuilder<ENTITY, RESOURCE> {
-        return entityBuilderClass.getConstructor(resourceClass).newInstance(resource)
-    }
-
-    private fun createResourceBuilder(entity: ENTITY): ResourceBuilder<RESOURCE, ENTITY> {
-        return resourceBuilderClass.getConstructor(entityClass).newInstance(entity)
     }
 
     private fun <R> serviceErrorHandler(message: String): (Throwable) -> Mono<R> {
