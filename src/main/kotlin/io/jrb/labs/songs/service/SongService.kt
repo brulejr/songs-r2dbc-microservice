@@ -3,12 +3,11 @@ package io.jrb.labs.songs.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.fge.jsonpatch.JsonPatch
 import io.jrb.common.service.CrudService
-import io.jrb.labs.songs.model.AuthorEntity
 import io.jrb.labs.songs.model.SongEntity
-import io.jrb.labs.songs.model.ThemeEntity
-import io.jrb.labs.songs.repository.AuthorEntityRepository
+import io.jrb.labs.songs.model.SongValueEntity
+import io.jrb.labs.songs.model.SongValueType
 import io.jrb.labs.songs.repository.SongEntityRepository
-import io.jrb.labs.songs.repository.ThemeEntityRepository
+import io.jrb.labs.songs.repository.SongValueEntityRepository
 import io.jrb.labs.songs.resource.Song
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,8 +18,7 @@ import java.util.UUID
 @Service
 class SongService(
         val songEntityRepository: SongEntityRepository,
-        val authorEntityRepository: AuthorEntityRepository,
-        val themeEntityRepository: ThemeEntityRepository,
+        val songValueEntityRepository: SongValueEntityRepository,
         val objectMapper: ObjectMapper
 ) : CrudService<SongEntity, Song>(
         songEntityRepository,
@@ -35,15 +33,19 @@ class SongService(
     @Transactional
     fun createSong(song: Song): Mono<Song> {
         return super.createEntity(song)
-                .flatMap { songEntity -> Mono.zip(
+                .flatMap { songEntity ->
+                    val songId = songEntity.id!!
+                    Mono.zip(
                         Mono.just(songEntity),
-                        createAuthors(song, songEntity.id!!),
-                        createThemes(song, songEntity.id)
-                )}
+                        createSongValues(SongValueType.ADDITIONAL_TITLE, song.additionalTitles, songId),
+                        createSongValues(SongValueType.AUTHOR, song.authors, songId),
+                        createSongValues(SongValueType.THEME, song.themes, songId)
+                    )}
                 .map { tuple ->
                     Song.Builder(tuple.t1)
-                            .authors(tuple.t2)
-                            .themes(tuple.t3)
+                            .additionalTitles(tuple.t2)
+                            .authors(tuple.t3)
+                            .themes(tuple.t4)
                             .build()
                 }
     }
@@ -51,26 +53,26 @@ class SongService(
     @Transactional
     fun deleteSong(guid: UUID): Mono<Void> {
         return super.findEntityByGuid(guid)
-                .flatMap { songEntity -> Mono.zip(
-                        authorEntityRepository.deleteBySongId(songEntity.id!!),
-                        themeEntityRepository.deleteBySongId(songEntity.id)
-                )}
+                .flatMap { songEntity -> songValueEntityRepository.deleteBySongId(songEntity.id!!) }
                 .then(super.delete(guid))
     }
 
     @Transactional
     fun findSongByGuid(guid: UUID): Mono<Song> {
         return super.findEntityByGuid(guid)
-                .flatMap { songEntity -> Mono.zip(
-                        Mono.just(songEntity),
-                        findAuthorList(songEntity.id!!),
-                        findThemeList(songEntity.id)
-                )}
+                .zipWhen { songEntity -> findSongValueList(songEntity.id!!) }
                 .map { tuple ->
-                    Song.Builder(tuple.t1)
-                            .authors(tuple.t2)
-                            .themes(tuple.t3)
-                            .build()
+                    val builder = Song.Builder(tuple.t1)
+                    tuple.t2.forEach { songValue ->
+                        val value = songValue.songValue
+                        when (songValue.songValueType) {
+                            SongValueType.ADDITIONAL_TITLE -> builder.addAdditionalTitle(value)
+                            SongValueType.AUTHOR -> builder.addAuthor(value)
+                            SongValueType.THEME -> builder.addTheme(value)
+                            else -> { }
+                        }
+                    }
+                    builder.build()
                 }
     }
 
@@ -84,31 +86,16 @@ class SongService(
         return super.update(guid, patch)
     }
 
-    private fun createAuthors(song: Song, songId: Long): Mono<List<String>> {
-        return Flux.fromIterable(song.authors)
-                .map { author -> AuthorEntity(null, songId, author) }
-                .flatMap { authorEntityRepository.save(it) }
-                .map(AuthorEntity::author)
+    private fun createSongValues(type: SongValueType, values: List<String>, songId: Long): Mono<List<String>> {
+        return Flux.fromIterable(values)
+                .map { value -> SongValueEntity(null, songId, value, type) }
+                .flatMap { songValueEntityRepository.save(it) }
+                .map(SongValueEntity::songValue)
                 .collectList()
     }
 
-    private fun createThemes(song: Song, songId: Long): Mono<List<String>> {
-        return Flux.fromIterable(song.themes)
-                .map { theme -> ThemeEntity(null, songId, theme) }
-                .flatMap { themeEntityRepository.save(it) }
-                .map(ThemeEntity::theme)
-                .collectList()
-    }
-
-    private fun findAuthorList(songId: Long): Mono<List<String>> {
-        return authorEntityRepository.findBySongId(songId)
-                .map(AuthorEntity::author)
-                .collectList()
-    }
-
-    private fun findThemeList(songId: Long): Mono<List<String>> {
-        return themeEntityRepository.findBySongId(songId)
-                .map(ThemeEntity::theme)
+    private fun findSongValueList(songId: Long): Mono<List<SongValueEntity>> {
+        return songValueEntityRepository.findBySongId(songId)
                 .collectList()
     }
 
