@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS t_author (
     author VARCHAR(64) NOT NULL,
     FOREIGN KEY (auth_song_id) REFERENCES t_song(song_id)
 );
+
+CREATE TABLE IF NOT EXISTS t_theme (
+    them_id SERIAL PRIMARY KEY,
+    them_song_id NUMBER,
+    theme VARCHAR(64) NOT NULL,
+    FOREIGN KEY (them_song_id) REFERENCES t_song(song_id)
+);
