@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS t_song (
 CREATE TABLE IF NOT EXISTS t_song_value (
     sval_id SERIAL PRIMARY KEY,
     sval_song_id NUMBER,
-    song_value VARCHAR(64) NOT NULL,
     song_value_type VARCHAR(23) NOT NULL,
+    song_value VARCHAR(64) NOT NULL,
+    song_value2 VARCHAR(64),
     FOREIGN KEY (sval_song_id) REFERENCES t_song(song_id)
 );

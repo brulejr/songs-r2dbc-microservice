@@ -14,8 +14,9 @@ data class Song(
         val authors: List<String> = listOf(),
         val additionalTitles: List<String> = listOf(),
         val themes: List<String> = listOf(),
-        val sourceId: String?,
         val sourceSystem: String?,
+        val sourceId: String?,
+        val tags: List<String> = listOf(),
         override val createdOn: Instant?,
         override val createdBy: String?,
         override val modifiedOn: Instant?,
@@ -28,14 +29,13 @@ data class Song(
             private var additionalTitles: MutableList<String> = mutableListOf(),
             private var themes: MutableList<String> = mutableListOf(),
             private var sourceId: String? = null,
-            private var sourceSystem: String? = null
+            private var sourceSystem: String? = null,
+            private var tags: MutableList<String> = mutableListOf()
     ) : ResourceBuilder<Song, SongEntity>() {
 
         constructor(songEntity: SongEntity): this() {
             this.guid = songEntity.guid
             this.title = songEntity.title
-            this.sourceId = songEntity.sourceId
-            this.sourceSystem = songEntity.sourceSystem
             this.createdOn = songEntity.createdOn
             this.createdBy = songEntity.createdBy
             this.modifiedOn = songEntity.modifiedOn
@@ -46,12 +46,14 @@ data class Song(
         fun authors(authors: List<String>) = apply { this.authors = authors.toMutableList() }
         fun additionalTitles(additionalTitles: List<String>) = apply { this.additionalTitles = additionalTitles.toMutableList() }
         fun themes(themes: List<String>) = apply { this.themes = themes.toMutableList() }
-        fun sourceId(sourceId: String?) = apply { this.sourceId = sourceId }
         fun sourceSystem(sourceSystem: String?) = apply { this.sourceSystem = sourceSystem }
+        fun sourceId(sourceId: String?) = apply { this.sourceId = sourceId }
+        fun tags(tags: List<String>) = apply { this.tags = tags.toMutableList() }
 
         fun addAuthor(author: String) = apply { this.authors.add(author) }
         fun addAdditionalTitle(additionalTitle: String) = apply { this.additionalTitles.add(additionalTitle) }
         fun addTheme(theme: String) = apply { this.themes.add(theme) }
+        fun addTag(tag: String) = apply { this.tags.add(tag) }
 
         override fun build() = Song(
                 guid = this.guid,
@@ -59,8 +61,9 @@ data class Song(
                 authors = this.authors,
                 additionalTitles = this.additionalTitles,
                 themes = this.themes,
-                sourceId = this.sourceId,
                 sourceSystem = this.sourceSystem,
+                sourceId = this.sourceId,
+                tags = this.tags,
                 createdOn = this.createdOn,
                 createdBy = this.createdBy,
                 modifiedOn = this.modifiedOn,

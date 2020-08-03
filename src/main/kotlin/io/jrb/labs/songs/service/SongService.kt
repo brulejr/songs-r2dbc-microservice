@@ -36,16 +36,21 @@ class SongService(
                 .flatMap { songEntity ->
                     val songId = songEntity.id!!
                     Mono.zip(
-                        Mono.just(songEntity),
-                        createSongValues(SongValueType.ADDITIONAL_TITLE, song.additionalTitles, songId),
-                        createSongValues(SongValueType.AUTHOR, song.authors, songId),
-                        createSongValues(SongValueType.THEME, song.themes, songId)
+                            Mono.just(songEntity),
+                            createSongValues(songId, SongValueType.ADDITIONAL_TITLE, song.additionalTitles),
+                            createSongValues(songId, SongValueType.AUTHOR, song.authors),
+                            createSongValues(songId, SongValueType.THEME, song.themes),
+                            createSongValues(songId, SongValueType.TAG, song.tags),
+                            createSongValuePair(songId, SongValueType.SOURCE, song.sourceSystem, song.sourceId)
                     )}
                 .map { tuple ->
                     Song.Builder(tuple.t1)
                             .additionalTitles(tuple.t2)
                             .authors(tuple.t3)
                             .themes(tuple.t4)
+                            .tags(tuple.t5)
+                            .sourceSystem(tuple.t6.songValue)
+                            .sourceId(tuple.t6.songValue2)
                             .build()
                 }
     }
@@ -68,7 +73,9 @@ class SongService(
                         when (songValue.songValueType) {
                             SongValueType.ADDITIONAL_TITLE -> builder.addAdditionalTitle(value)
                             SongValueType.AUTHOR -> builder.addAuthor(value)
+                            SongValueType.SOURCE -> builder.sourceSystem(songValue.songValue).sourceId(songValue.songValue2)
                             SongValueType.THEME -> builder.addTheme(value)
+                            SongValueType.TAG -> builder.addTag(value)
                             else -> { }
                         }
                     }
@@ -86,12 +93,21 @@ class SongService(
         return super.update(guid, patch)
     }
 
-    private fun createSongValues(type: SongValueType, values: List<String>, songId: Long): Mono<List<String>> {
+    private fun createSongValues(songId: Long, type: SongValueType, values: List<String>): Mono<List<String>> {
         return Flux.fromIterable(values)
-                .map { value -> SongValueEntity(null, songId, value, type) }
+                .map { value -> SongValueEntity(null, songId, type, value, null) }
                 .flatMap { songValueEntityRepository.save(it) }
                 .map(SongValueEntity::songValue)
                 .collectList()
+    }
+
+    private fun createSongValuePair(songId: Long, type: SongValueType, value1: String?, value2: String?): Mono<SongValueEntity> {
+        return if (value1.isNullOrEmpty()) {
+            Mono.empty()
+        } else {
+            Mono.just(SongValueEntity(null, songId, type, value1, value2))
+                    .flatMap { songValueEntityRepository.save(it) }
+        }
     }
 
     private fun findSongValueList(songId: Long): Mono<List<SongValueEntity>> {

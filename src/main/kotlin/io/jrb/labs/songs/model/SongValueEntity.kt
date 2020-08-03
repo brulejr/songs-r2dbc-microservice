@@ -14,10 +14,13 @@ data class SongValueEntity(
         @Column(value = "sval_song_id")
         val songId: Long,
 
+        @Column(value = "song_value_type")
+        val songValueType: SongValueType,
+
         @Column(value = "song_value")
         val songValue: String,
 
-        @Column(value = "song_value_type")
-        val songValueType: SongValueType
+        @Column(value = "song_value2")
+        val songValue2: String?
 
 )
